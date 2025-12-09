@@ -1,6 +1,7 @@
 import React from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import Logo from "../assets/logo/giro_logo.png";
+
 export default function Navbar() {
   const { authenticated, user, login, logout } = usePrivy();
 
