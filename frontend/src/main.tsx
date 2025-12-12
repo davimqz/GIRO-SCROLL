@@ -13,6 +13,8 @@ createRoot(document.getElementById('root')!).render(
           theme: 'light',
           accentColor: '#676FFF',
         },
+        // `embeddedWallets` expects provider-specific keys (e.g. `ethereum`, `solana`).
+        // Move `createOnLogin` under the provider you intend to use.
         embeddedWallets: {
           ethereum: {
             createOnLogin: 'users-without-wallets',
