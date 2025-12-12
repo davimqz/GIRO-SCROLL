@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import Logo from "../assets/logo/giro_logo.png";
+import { CreateProductModal } from "./CreateProductModal";
 
 export default function Navbar() {
   const { authenticated, user, login, logout } = usePrivy();
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
 
   return (
     <>
@@ -23,7 +26,15 @@ export default function Navbar() {
           </ul>
 
           {/* DIREITA */}
-          <div>
+          <div className="flex items-center gap-3">
+            {authenticated && (
+              <button
+                onClick={() => setShowCreateProduct(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-semibold"
+              >
+                + List Product
+              </button>
+            )}
             {!authenticated ? (
               <button
                 onClick={login}
@@ -45,6 +56,16 @@ export default function Navbar() {
 
         </div>
       </nav>
+
+      {/* Create Product Modal */}
+      <CreateProductModal
+        isOpen={showCreateProduct}
+        onClose={() => setShowCreateProduct(false)}
+        onSuccess={() => {
+          // TODO: Redirecionar para página de produtos ou atualizar lista
+          console.log('Product created successfully!');
+        }}
+      />
 
       {/* Spacer para empurrar o conteúdo */}
       
