@@ -1,0 +1,15 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#gradient)"/>
+  
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1D4ED8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Letter G -->
+  <path d="M100 50C72.3858 50 50 72.3858 50 100C50 127.614 72.3858 150 100 150C115.5 150 129.1 142.5 137.5 131.25H112.5V112.5H150V100C150 72.3858 127.614 50 100 50ZM100 131.25C82.95 131.25 68.75 117.05 68.75 100C68.75 82.95 82.95 68.75 100 68.75C117.05 68.75 131.25 82.95 131.25 100H112.5V125C109.4 127.9 104.95 131.25 100 131.25Z" fill="white"/>
+</svg>
