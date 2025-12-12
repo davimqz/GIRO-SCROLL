@@ -5,11 +5,22 @@ import Hero from "./components/Hero";
 import Footer from "./components/Footer";
 import HowItWorks from "./components/HowItWorks";
 import { OnboardingModal } from "./components/OnboardingModal";
+import { ProductsList } from "./components/ProductsList";
 import { supabase } from "./lib/supabase";
 
 function App() {
   const { authenticated, user } = usePrivy();
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Scroll para marketplace quando conectar carteira
+  useEffect(() => {
+    if (authenticated) {
+      const marketplaceSection = document.getElementById('marketplace');
+      if (marketplaceSection) {
+        marketplaceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [authenticated]);
 
   // Verifica se usuário já completou onboarding
   useEffect(() => {
@@ -51,8 +62,16 @@ function App() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <Hero />
-      <HowItWorks />
+      {!authenticated && (
+        <>
+          <Hero />
+          <HowItWorks />
+        </>
+      )}
+      
+      {/* Marketplace Products */}
+      <ProductsList />
+      
       <Footer />
       
       {/* Onboarding Modal */}
