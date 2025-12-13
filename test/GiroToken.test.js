@@ -99,12 +99,12 @@ describe("GiroToken", function () {
       ).to.be.revertedWith("Insufficient reward pool");
     });
 
-    it("Should return correct canClaimReward status", async function () {
-      expect(await giroToken.canClaimReward(user1.address)).to.be.true;
+    it("Should return correct canClaimOnboardingReward status", async function () {
+      expect(await giroToken.canClaimOnboardingReward(user1.address)).to.be.true;
       
       await giroToken.connect(user1).claimOnboardingReward();
       
-      expect(await giroToken.canClaimReward(user1.address)).to.be.false;
+      expect(await giroToken.canClaimOnboardingReward(user1.address)).to.be.false;
     });
   });
 

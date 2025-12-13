@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useWallets } from '@privy-io/react-auth';
 import { useProducts, type CreateProductData } from '../hooks/useProducts';
+import { useAchievements } from '../hooks/useAchievements';
+import { AchievementNotification } from './AchievementNotification';
 
 interface CreateProductModalProps {
   isOpen: boolean;
@@ -8,7 +11,15 @@ interface CreateProductModalProps {
 }
 
 export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProductModalProps) {
+  const { wallets } = useWallets();
   const { createProduct, isLoading, error, setError } = useProducts();
+  const { achievements, fetchAchievements, claimFirstListingReward } = useAchievements();
+
+  const walletAddress = wallets[0]?.address?.toLowerCase();
+
+  const [showAchievement, setShowAchievement] = useState(false);
+  const [achievementMessage, setAchievementMessage] = useState('');
+  const [achievementAmount, setAchievementAmount] = useState(0);
 
   const [formData, setFormData] = useState<Omit<CreateProductData, 'images'>>({
     title: '',
@@ -22,7 +33,14 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
   const [images, setImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
-  if (!isOpen) return null;
+  // Verifica achievements após abrir modal (DEVE vir antes do early return)
+  useEffect(() => {
+    if (isOpen && walletAddress) {
+      // Só tenta buscar achievements se a wallet está conectada
+      // Se o usuário ainda está no onboarding, isso retornará null gracefully
+      fetchAchievements();
+    }
+  }, [isOpen, walletAddress, fetchAchievements]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -56,6 +74,8 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
     setImagePreviews(newPreviews);
   };
 
+  if (!isOpen) return null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -77,6 +97,8 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
     const success = await createProduct(productData);
     
     if (success) {
+      console.log('✅ Product created successfully!');
+      
       // Limpa o formulário
       setFormData({
         title: '',
@@ -89,41 +111,93 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       setImages([]);
       setImagePreviews([]);
       
-      // Fecha o modal
+      // Verifica se é o primeiro produto (será elegível após contador incrementar)
+      console.log('🔄 Fetching initial achievements...');
+      await fetchAchievements();
+      
+      // Fecha o modal e callback
       onSuccess?.();
       onClose();
+
+      // Aguarda 2 segundos e verifica se pode reclamar reward
+      setTimeout(async () => {
+        console.log('⏰ Checking achievements after 2 seconds...');
+        await fetchAchievements();
+        
+        console.log('📊 Current achievements state:', achievements);
+        
+        if (achievements?.canClaimFirstListing) {
+          console.log('🎁 Can claim first listing! Attempting to claim...');
+          try {
+            console.log('💰 Calling claimFirstListingReward()...');
+            await claimFirstListingReward();
+            console.log('✅ Reward claimed successfully!');
+            setAchievementMessage('Primeiro produto listado!');
+            setAchievementAmount(10);
+            setShowAchievement(true);
+          } catch (err) {
+            console.error('❌ Failed to claim first listing reward:', err);
+          }
+        } else {
+          console.warn('⚠️ Cannot claim first listing reward. canClaimFirstListing:', achievements?.canClaimFirstListing);
+          console.warn('📈 Current listingsCount:', achievements?.listingsCount);
+        }
+      }, 2000);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-8 relative my-8">
+    <>
+      <AchievementNotification
+        show={showAchievement}
+        amount={achievementAmount}
+        message={achievementMessage}
+        onClose={() => setShowAchievement(false)}
+      />
+
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="bg-white rounded-xl max-w-lg w-full p-6 relative my-auto">
         {/* Header */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-light"
+          className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-light"
         >
           ×
         </button>
 
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">List Your Product</h2>
-        <p className="text-gray-600 mb-6">Fill in the details to create your listing</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">List Your Product</h2>
+        <p className="text-gray-600 text-sm mb-4">Fill in the details to create your listing</p>
+
+        {/* First Listing Reward Banner - Mostrar apenas na primeira postagem */}
+        {achievements?.listingsCount === 0 && achievements?.canClaimFirstListing && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-xl">🎁</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-green-800 text-sm mb-1">Recompensa do Primeiro Anúncio!</h3>
+                <p className="text-xs text-green-700">
+                  Ganhe <strong>10 GIRO</strong> ao publicar seu primeiro produto.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Images Upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Product Images * (2-4 images)
             </label>
             
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
               <input
                 type="file"
                 accept="image/*"
@@ -183,7 +257,7 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
 
           {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Title *
             </label>
             <input
@@ -191,30 +265,30 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="e.g., Nike Air Max 90 - Size 42"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Description *
             </label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe your product in detail..."
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              rows={3}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               required
             />
           </div>
 
           {/* Price & Condition */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Price (GIRO) *
               </label>
               <input
@@ -224,19 +298,19 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
                 value={formData.price || ''}
                 onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                 placeholder="10"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Condition *
               </label>
               <select
                 value={formData.condition}
                 onChange={(e) => setFormData({ ...formData, condition: e.target.value as any })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
                 <option value="new">New</option>
@@ -249,9 +323,9 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
           </div>
 
           {/* Size & Category */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Size (optional)
               </label>
               <input
@@ -259,12 +333,12 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
                 value={formData.size}
                 onChange={(e) => setFormData({ ...formData, size: e.target.value })}
                 placeholder="e.g., M, 42, One Size"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Category (optional)
               </label>
               <input
@@ -278,11 +352,11 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
           </div>
 
           {/* Submit */}
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               disabled={isLoading}
             >
               Cancel
@@ -290,13 +364,22 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
             <button
               type="submit"
               disabled={isLoading || images.length < 2}
-              className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex-1 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                achievements?.listingsCount === 0 && achievements?.canClaimFirstListing
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
             >
-              {isLoading ? 'Creating...' : 'List Product'}
+              {isLoading 
+                ? 'Creating...' 
+                : achievements?.listingsCount === 0 && achievements?.canClaimFirstListing
+                  ? 'Publicar 🎁' 
+                  : 'List Product'}
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

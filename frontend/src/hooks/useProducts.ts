@@ -135,6 +135,23 @@ export function useProducts() {
         }
 
         console.log('Product created successfully:', product);
+
+        // Incrementar contador de listings no Supabase
+        try {
+          console.log('🔄 Calling increment_listings_count RPC with wallet:', walletAddress);
+          const { data, error: incrementError } = await supabase.rpc('increment_listings_count', {
+            user_wallet: walletAddress,
+          });
+          
+          if (incrementError) {
+            console.error('❌ RPC increment_listings_count failed:', incrementError);
+          } else {
+            console.log('✅ RPC increment_listings_count succeeded:', data);
+          }
+        } catch (incrementError) {
+          console.error('❌ Failed to increment listings count:', incrementError);
+        }
+
         return true;
       } catch (err: any) {
         console.error('Error creating product:', err);

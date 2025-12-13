@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { supabase, type User, type OnboardingStatus } from '../lib/supabase';
-import { GIRO_TOKEN_ABI, GIRO_TOKEN_ADDRESS } from '../contracts/giroToken';
+import { giroTokenABI } from '../contracts/giroToken';
+
+const GIRO_TOKEN_ADDRESS = import.meta.env.VITE_GIRO_TOKEN_ADDRESS as `0x${string}`;
 import { createPublicClient, createWalletClient, custom, http, parseEther } from 'viem';
 import { sepolia } from 'viem/chains';
 
@@ -257,8 +259,9 @@ export function useOnboarding() {
       // Chama o contrato para claim reward
       const hash = await walletClient.writeContract({
         address: GIRO_TOKEN_ADDRESS as `0x${string}`,
-        abi: GIRO_TOKEN_ABI,
+        abi: giroTokenABI,
         functionName: 'claimOnboardingReward',
+        gas: 200000n,
       });
 
       // Aguarda confirmação da transação

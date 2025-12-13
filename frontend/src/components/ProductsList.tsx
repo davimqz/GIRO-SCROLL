@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProducts, type Product } from '../hooks/useProducts';
 import { ProductCard } from './ProductCard';
+import { ProductDetailModal } from './ProductDetailModal';
 
 export function ProductsList() {
   const { products, fetchProducts, isLoading, error } = useProducts();
@@ -60,24 +61,25 @@ export function ProductsList() {
   }
 
   return (
-    <div id="marketplace" className="py-12">
+    <div id="marketplace" className="pt-20 pb-16 md:pb-12 min-h-screen flex flex-col">
       {/* Header */}
-      <div className="max-w-7xl mx-auto px-6 mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Marketplace</h1>
-            <p className="text-gray-600">
+      <div className="max-w-7xl mx-auto px-6 mb-4 flex-shrink-0">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">Marketplace</h1>
+            <p className="text-gray-600 text-sm md:text-base">
               {products.length} {products.length === 1 ? 'product' : 'products'} available
             </p>
           </div>
           <button
             onClick={fetchProducts}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+            className="px-2 py-2 md:px-4 md:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 md:gap-2 flex-shrink-0 mt-1"
+            title="Atualizar produtos"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Refresh
+            <span className="hidden md:inline">Refresh</span>
           </button>
         </div>
       </div>
@@ -95,39 +97,16 @@ export function ProductsList() {
         </div>
       </div>
 
-      {/* Modal de detalhes (TODO: criar componente separado) */}
-      {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-8 relative">
-            <button
-              onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-2xl font-light"
-            >
-              ×
-            </button>
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">{selectedProduct.title}</h2>
-              <p className="text-gray-600 mb-4">{selectedProduct.description}</p>
-              <p className="text-3xl font-bold text-blue-600 mb-4">
-                {selectedProduct.price_giro} GIRO
-              </p>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                {selectedProduct.images.map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img}
-                    alt={`${selectedProduct.title} ${idx + 1}`}
-                    className="w-full h-64 object-cover rounded-lg"
-                  />
-                ))}
-              </div>
-              <button className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold">
-                Buy Now (Coming Soon)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={selectedProduct !== null}
+        onClose={() => setSelectedProduct(null)}
+        onBuy={(product) => {
+          console.log('Buy product:', product);
+          // TODO: Implementar compra
+        }}
+      />
     </div>
   );
 }
