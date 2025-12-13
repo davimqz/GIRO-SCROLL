@@ -49,6 +49,16 @@ create table if not exists public.onboarding_status (
   reward_transaction_hash text,
   reward_claimed_at timestamp with time zone,
   
+  -- Contadores de achievements para recompensas progressivas
+  listings_count integer default 0,
+  sales_count integer default 0,
+  purchases_count integer default 0,
+  
+  -- Flags de rewards de achievements já reclamados
+  first_listing_reward_claimed boolean default false,
+  second_sale_reward_claimed boolean default false,
+  second_purchase_reward_claimed boolean default false,
+  
   -- Metadata
   completed_at timestamp with time zone,
   created_at timestamp with time zone default now(),
@@ -71,8 +81,8 @@ create table if not exists public.reward_claims (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid references public.users(id) on delete cascade not null,
   wallet_address text not null,
-  reward_type text not null default 'onboarding',
-  amount numeric(78, 0) not null, -- 50 GIRO = 50000000000000000000 (18 decimals)
+  reward_type text not null check (reward_type in ('onboarding', 'first_listing', 'second_sale', 'second_purchase')),
+  amount numeric(78, 0) not null, -- Em wei (18 decimals): 50 GIRO = 50000000000000000000
   transaction_hash text unique not null,
   block_number bigint,
   claimed_at timestamp with time zone default now(),

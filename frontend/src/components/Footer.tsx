@@ -1,6 +1,24 @@
-export default function Footer() {
+interface FooterProps {
+  authenticated?: boolean;
+}
+
+export default function Footer({ authenticated = false }: FooterProps) {
   const year = new Date().getFullYear();
 
+  // Versão simplificada para usuários autenticados
+  if (authenticated) {
+    return (
+      <footer className="bg-gray-900 text-gray-300 mt-12">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="text-center text-sm text-gray-400">
+            <p>© {year} Giro. Todos os direitos reservados.</p>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
+  // Versão completa para landing page
   return (
     <footer className="bg-gray-900 text-gray-300 rounded-t-lg shadow-inner mt-12">
       <div className="max-w-7xl mx-auto px-6 py-12">
