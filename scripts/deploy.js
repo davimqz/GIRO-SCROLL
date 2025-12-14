@@ -3,13 +3,13 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Script de deploy do GiroToken para Scroll Sepolia
+ * Script de deploy do GiroToken + GiroMarketplace para Scroll Sepolia
  * 
  * Como rodar:
  * npx hardhat run scripts/deploy.js --network scrollSepolia
  */
 async function main() {
-  console.log("🚀 Deploying GiroToken to", hre.network.name);
+  console.log("🚀 Deploying GiroToken + GiroMarketplace to", hre.network.name);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   // Pega a conta que vai fazer o deploy
@@ -26,7 +26,7 @@ async function main() {
     process.exit(1);
   }
 
-  // Deploy do contrato
+  // Deploy do GiroToken
   // Initial supply = 100,000 GIRO (suficiente para 2000 onboardings)
   const initialSupply = 100_000;
   
@@ -39,12 +39,12 @@ async function main() {
   const giroToken = await GiroToken.deploy(initialSupply);
 
   await giroToken.waitForDeployment();
-  const contractAddress = await giroToken.getAddress();
+  const giroTokenAddress = await giroToken.getAddress();
 
   console.log("\n✅ GiroToken deployed!");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("📍 Contract Address:", contractAddress);
-  console.log("🔗 Explorer:", `https://sepolia.scrollscan.com/address/${contractAddress}`);
+  console.log("📍 Contract Address:", giroTokenAddress);
+  console.log("🔗 Explorer:", `https://sepolia.scrollscan.com/address/${giroTokenAddress}`);
   console.log("👤 Owner:", deployer.address);
 
   // Verifica info do contrato
@@ -62,22 +62,49 @@ async function main() {
   console.log("   Owner Balance:", hre.ethers.formatEther(ownerBalance), "GIRO");
   console.log("   Available Rewards:", (Number(hre.ethers.formatEther(ownerBalance)) / 50).toFixed(0), "users");
 
-  // Salva endereço do contrato em arquivo JSON
+  // ============================================
+  // 2️⃣ Deploy do GiroMarketplace
+  // ============================================
+  
+  console.log("\n⏳ Deploying GiroMarketplace...");
+  console.log("   Token Address:", giroTokenAddress);
+
+  const GiroMarketplace = await hre.ethers.getContractFactory("GiroMarketplace");
+  const marketplace = await GiroMarketplace.deploy(giroTokenAddress);
+
+  await marketplace.waitForDeployment();
+  const marketplaceAddress = await marketplace.getAddress();
+
+  console.log("\n✅ GiroMarketplace deployed!");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("📍 Contract Address:", marketplaceAddress);
+  console.log("🔗 Explorer:", `https://sepolia.scrollscan.com/address/${marketplaceAddress}`);
+
+  // ============================================
+  // 3️⃣ Salvar informações de deployment
+  // ============================================
+
+  // Salva endereço dos contratos em arquivo JSON
   const deploymentInfo = {
     network: hre.network.name,
-    contractAddress: contractAddress,
-    deployer: deployer.address,
-    timestamp: new Date().toISOString(),
-    blockNumber: await hre.ethers.provider.getBlockNumber(),
-    tokenInfo: {
+    giroToken: {
+      address: giroTokenAddress,
       name,
       symbol,
       decimals: decimals.toString(),
       initialSupply: hre.ethers.formatEther(totalSupply),
-      onboardingReward: "50",
       maxSupply: "10000000",
+      ownerBalance: hre.ethers.formatEther(ownerBalance),
+      explorerUrl: `https://sepolia.scrollscan.com/address/${giroTokenAddress}`,
     },
-    explorerUrl: `https://sepolia.scrollscan.com/address/${contractAddress}`,
+    marketplace: {
+      address: marketplaceAddress,
+      tokenAddress: giroTokenAddress,
+      explorerUrl: `https://sepolia.scrollscan.com/address/${marketplaceAddress}`,
+    },
+    deployer: deployer.address,
+    timestamp: new Date().toISOString(),
+    blockNumber: await hre.ethers.provider.getBlockNumber(),
   };
 
   const deploymentsDir = path.join(__dirname, "..", "deployments");
@@ -102,27 +129,36 @@ async function main() {
     console.log("\n⏳ Waiting for block confirmations...");
     await giroToken.deploymentTransaction().wait(5);
     
-    console.log("\n🔍 Verifying contract on Scrollscan...");
+    console.log("\n🔍 Verifying contracts on Scrollscan...");
     try {
       await hre.run("verify:verify", {
-        address: contractAddress,
+        address: giroTokenAddress,
         constructorArguments: [initialSupply],
       });
-      console.log("✅ Contract verified!");
+      console.log("✅ GiroToken verified!");
     } catch (error) {
-      console.log("⚠️  Verification failed:", error.message);
-      console.log("   You can verify manually with:");
-      console.log(`   npx hardhat verify --network ${hre.network.name} ${contractAddress} ${initialSupply}`);
+      console.log("⚠️  GiroToken verification failed:", error.message);
+    }
+
+    try {
+      await hre.run("verify:verify", {
+        address: marketplaceAddress,
+        constructorArguments: [giroTokenAddress],
+      });
+      console.log("✅ GiroMarketplace verified!");
+    } catch (error) {
+      console.log("⚠️  GiroMarketplace verification failed:", error.message);
     }
   }
 
   console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("🎉 Deployment complete!");
   console.log("\n📝 Next steps:");
-  console.log("   1. Add contract address to frontend .env:");
-  console.log(`      VITE_GIRO_TOKEN_ADDRESS=${contractAddress}`);
-  console.log("   2. Add to Supabase for backend integration");
-  console.log("   3. Test claiming reward with a test wallet");
+  console.log("   1. Add contract addresses to frontend .env:");
+  console.log(`      VITE_GIRO_TOKEN_ADDRESS=${giroTokenAddress}`);
+  console.log(`      VITE_GIRO_MARKETPLACE_ADDRESS=${marketplaceAddress}`);
+  console.log("   2. Update frontend with ABIs");
+  console.log("   3. Test the marketplace in frontend");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }
 

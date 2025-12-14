@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { useProducts, type CreateProductData } from '../hooks/useProducts';
+import { useMarketplace } from '../hooks/useMarketplace';
 import { useAchievements } from '../hooks/useAchievements';
 import { AchievementNotification } from './AchievementNotification';
+import { parseEther } from 'viem';
+import { supabase } from '../lib/supabase';
 
 interface CreateProductModalProps {
   isOpen: boolean;
@@ -12,10 +15,12 @@ interface CreateProductModalProps {
 
 export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProductModalProps) {
   const { wallets } = useWallets();
-  const { createProduct, isLoading, error, setError } = useProducts();
+  const { createProduct, isLoading: supabaseLoading, error, setError } = useProducts();
+  const { listProduct, isLoading: blockchainLoading } = useMarketplace();
   const { achievements, fetchAchievements, claimFirstListingReward } = useAchievements();
 
   const walletAddress = wallets[0]?.address?.toLowerCase();
+  const isLoading = supabaseLoading || blockchainLoading;
 
   const [showAchievement, setShowAchievement] = useState(false);
   const [achievementMessage, setAchievementMessage] = useState('');
@@ -94,56 +99,92 @@ export function CreateProductModal({ isOpen, onClose, onSuccess }: CreateProduct
       images,
     };
 
-    const success = await createProduct(productData);
+    // Step 1: Salvar no Supabase (metadados e imagens)
+    console.log('📤 Uploading to Supabase...');
+    const productResult = await createProduct(productData);
     
-    if (success) {
-      console.log('✅ Product created successfully!');
-      
-      // Limpa o formulário
-      setFormData({
-        title: '',
-        description: '',
-        price: 0,
-        condition: 'good',
-        size: '',
-        category: '',
-      });
-      setImages([]);
-      setImagePreviews([]);
-      
-      // Verifica se é o primeiro produto (será elegível após contador incrementar)
-      console.log('🔄 Fetching initial achievements...');
+    if (!productResult) {
+      console.error('❌ Failed to save to Supabase');
+      return;
+    }
+
+    console.log('✅ Saved to Supabase, Product ID:', productResult.id);
+
+    // Step 2: Listar no Blockchain (marketplace)
+    console.log('⛓️ Listing on blockchain...');
+    const blockchainProductId = await listProduct(
+      formData.title,
+      formData.description,
+      formData.price
+    );
+    
+    console.log('📦 Returned blockchainProductId:', blockchainProductId);
+    
+    if (blockchainProductId === null || blockchainProductId === undefined) {
+      console.error('❌ Failed to list on blockchain - got null ID');
+      setError('Failed to list product on blockchain. Check your wallet.');
+      return;
+    }
+
+    console.log('✅ Listed on blockchain with ID:', blockchainProductId.toString());
+    
+    // Step 3: Atualizar o produto no Supabase com blockchain_product_id
+    console.log('🔗 Linking blockchain product ID to Supabase...');
+    console.log('📋 Product ID:', productResult.id);
+    console.log('⛓️ Blockchain ID:', blockchainProductId);
+    
+    const { error: updateError, data: updateData } = await supabase
+      .from('products')
+      .update({ blockchain_product_id: Number(blockchainProductId) })
+      .eq('id', productResult.id);
+
+    if (updateError) {
+      console.error('❌ Failed to link blockchain ID:', updateError);
+      console.error('📊 Update error details:', updateError);
+      setError('Failed to link blockchain ID. Product was created but not linked.');
+      return;
+    }
+
+    console.log('✅ Blockchain ID linked successfully:', updateData);
+    
+    // Limpa o formulário
+    setFormData({
+      title: '',
+      description: '',
+      price: 0,
+      condition: 'good',
+      size: '',
+      category: '',
+    });
+    setImages([]);
+    setImagePreviews([]);
+    
+    // Verifica achievements
+    console.log('🔄 Fetching achievements...');
+    await fetchAchievements();
+    
+    // Fecha o modal e callback
+    onSuccess?.();
+    onClose();
+
+    // Aguarda um pouco e verifica rewards
+    setTimeout(async () => {
+      console.log('⏰ Checking for reward claim...');
       await fetchAchievements();
       
-      // Fecha o modal e callback
-      onSuccess?.();
-      onClose();
-
-      // Aguarda 2 segundos e verifica se pode reclamar reward
-      setTimeout(async () => {
-        console.log('⏰ Checking achievements after 2 seconds...');
-        await fetchAchievements();
-        
-        console.log('📊 Current achievements state:', achievements);
-        
-        if (achievements?.canClaimFirstListing) {
-          console.log('🎁 Can claim first listing! Attempting to claim...');
-          try {
-            console.log('💰 Calling claimFirstListingReward()...');
-            await claimFirstListingReward();
-            console.log('✅ Reward claimed successfully!');
-            setAchievementMessage('Primeiro produto listado!');
-            setAchievementAmount(10);
-            setShowAchievement(true);
-          } catch (err) {
-            console.error('❌ Failed to claim first listing reward:', err);
-          }
-        } else {
-          console.warn('⚠️ Cannot claim first listing reward. canClaimFirstListing:', achievements?.canClaimFirstListing);
-          console.warn('📈 Current listingsCount:', achievements?.listingsCount);
+      if (achievements?.canClaimFirstListing) {
+        console.log('🎁 Can claim first listing!');
+        try {
+          await claimFirstListingReward();
+          console.log('✅ Reward claimed!');
+          setAchievementMessage('Primeiro produto listado!');
+          setAchievementAmount(10);
+          setShowAchievement(true);
+        } catch (err) {
+          console.error('❌ Failed to claim reward:', err);
         }
-      }, 2000);
-    }
+      }
+    }, 2000);
   };
 
   return (

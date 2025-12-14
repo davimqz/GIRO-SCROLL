@@ -32,6 +32,10 @@ contract GiroToken is ERC20, Ownable, Pausable {
     mapping(address => bool) public hasClaimedSecondSale;
     mapping(address => bool) public hasClaimedSecondPurchase;
     
+    /// @notice Contadores de transações para rewards de segunda venda/compra
+    mapping(address => uint256) public salesCount;
+    mapping(address => uint256) public purchasesCount;
+    
     /// @notice Eventos emitidos quando usuários reivindicam rewards
     event OnboardingRewardClaimed(address indexed user, uint256 amount);
     event FirstListingRewardClaimed(address indexed user, uint256 amount);
@@ -40,6 +44,15 @@ contract GiroToken is ERC20, Ownable, Pausable {
     
     /// @notice Evento emitido quando tokens são mintados para rewards futuros
     event RewardPoolMinted(address indexed to, uint256 amount);
+    
+    /// @notice Evento emitido quando tokens são queimados
+    event TokensBurned(address indexed from, uint256 amount);
+    
+    /// @notice Evento emitido quando uma compra acontece
+    event ProductPurchased(address indexed buyer, address indexed seller, uint256 amount);
+    
+    /// @notice Evento emitido quando um produto é listado
+    event ProductListed(address indexed seller, uint256 productId, uint256 price);
 
     /**
      * @dev Constructor - minta supply inicial para o owner (usado para rewards)
@@ -190,5 +203,79 @@ contract GiroToken is ERC20, Ownable, Pausable {
      */
     function rewardPoolBalance() external view returns (uint256) {
         return balanceOf(owner());
+    }
+
+    /**
+     * @dev Queima tokens de um endereço
+     * @param amount Quantidade de tokens a queimar (em wei)
+     * @notice Qualquer usuário pode queimar seus próprios tokens
+     */
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
+        emit TokensBurned(msg.sender, amount);
+    }
+
+    /**
+     * @dev Realiza compra de produto (chamado pelo Marketplace)
+     * @param buyer Endereço do comprador
+     * @param seller Endereço do vendedor
+     * @param amount Valor em GIRO a ser pago
+     * @notice Queima os tokens do comprador
+     * @notice Apenas contrato autorizado pode chamar
+     */
+    function executePurchase(
+        address buyer,
+        address seller,
+        uint256 amount
+    ) external {
+        require(msg.sender == buyer || msg.sender == address(this), "Unauthorized");
+        
+        // Verificar balance do comprador
+        require(balanceOf(buyer) >= amount, "Insufficient balance");
+        
+        // Queimar tokens do comprador
+        _burn(buyer, amount);
+        
+        // Incrementar contador de vendas do vendedor
+        salesCount[seller]++;
+        
+        // Incrementar contador de compras do comprador
+        purchasesCount[buyer]++;
+        
+        emit ProductPurchased(buyer, seller, amount);
+    }
+
+    /**
+     * @dev Registra a listagem de um produto
+     * @param seller Endereço do vendedor
+     * @param productId ID do produto
+     * @param price Preço em GIRO
+     * @notice Apenas para tracking de eventos
+     */
+    function recordProductListing(
+        address seller,
+        uint256 productId,
+        uint256 price
+    ) external {
+        // Qualquer endereço pode chamar, vai ser o Marketplace
+        emit ProductListed(seller, productId, price);
+    }
+
+    /**
+     * @dev Retorna o número de vendas de um endereço
+     * @param seller Endereço do vendedor
+     * @return uint256 Número de vendas
+     */
+    function getSalesCount(address seller) external view returns (uint256) {
+        return salesCount[seller];
+    }
+
+    /**
+     * @dev Retorna o número de compras de um endereço
+     * @param buyer Endereço do comprador
+     * @return uint256 Número de compras
+     */
+    function getPurchasesCount(address buyer) external view returns (uint256) {
+        return purchasesCount[buyer];
     }
 }
