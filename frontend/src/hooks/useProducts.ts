@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { supabase } from '../lib/supabase';
-import { parseEther } from 'viem';
 
 export interface Product {
   id: string;
@@ -75,10 +74,10 @@ export function useProducts() {
 
   // Criar produto
   const createProduct = useCallback(
-    async (productData: CreateProductData): Promise<boolean> => {
+    async (productData: CreateProductData): Promise<{ id: string; seller_id: string } | null> => {
       if (!authenticated || !walletAddress) {
         setError('Please connect your wallet');
-        return false;
+        return null;
       }
 
       setIsLoading(true);
@@ -109,8 +108,8 @@ export function useProducts() {
         console.log('Uploading images...');
         const imageUrls = await uploadImages(productData.images);
 
-        // Converte preço para wei (18 decimals)
-        const priceInWei = parseEther(productData.price.toString()).toString();
+        // Armazena preço como número (não em wei)
+        const priceAsString = productData.price.toString();
 
         // Cria o produto
         const { data: product, error: productError } = await supabase
@@ -120,7 +119,7 @@ export function useProducts() {
             seller_wallet: walletAddress,
             title: productData.title,
             description: productData.description,
-            price_giro: priceInWei,
+            price_giro: priceAsString,
             condition: productData.condition,
             size: productData.size || null,
             category: productData.category || null,
@@ -152,11 +151,12 @@ export function useProducts() {
           console.error('❌ Failed to increment listings count:', incrementError);
         }
 
-        return true;
+        // Return product with id and seller_id for blockchain linking
+        return { id: product.id, seller_id: product.seller_id };
       } catch (err: any) {
         console.error('Error creating product:', err);
         setError(err.message || 'Failed to create product');
-        return false;
+        return null;
       } finally {
         setIsLoading(false);
       }

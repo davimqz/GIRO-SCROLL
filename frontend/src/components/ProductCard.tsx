@@ -1,5 +1,6 @@
 import { type Product } from '../hooks/useProducts';
-import { formatPrice, translateCondition, getConditionColor } from '../lib/utils';
+import { useWallets } from '@privy-io/react-auth';
+import { useBalance } from '../hooks/useBalance';
 
 interface ProductCardProps {
   product: Product;
@@ -7,10 +8,22 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onViewDetails }: ProductCardProps) {
-  const mainImage = product.images[0] || 'https://via.placeholder.com/300x300?text=No+Image';
+  const { wallets } = useWallets();
+  const { balance } = useBalance();
+  
+  const mainImage = product.images?.[0] || 'https://via.placeholder.com/300x300?text=Product';
+
+  const walletAddress = wallets[0]?.address?.toLowerCase();
+  const isOwnProduct = product.seller_wallet?.toLowerCase() === walletAddress;
+  const priceInGiro = parseFloat(product.price_giro || '0');
+  const hasEnoughBalance = balance >= priceInGiro;
+  const isSold = product.status === 'sold';
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer">
+    <div 
+      onClick={() => onViewDetails?.(product)}
+      className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+    >
       {/* Imagem */}
       <div className="relative h-64 bg-gray-200 overflow-hidden group">
         <img
@@ -22,20 +35,19 @@ export function ProductCard({ product, onViewDetails }: ProductCardProps) {
           }}
         />
         
-        {/* Badge de condição */}
-        <div className="absolute top-3 right-3">
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getConditionColor(product.condition)}`}>
-            {translateCondition(product.condition)}
+        {/* Condição do produto */}
+        <div className="absolute top-3 left-3">
+          <span className="px-2 py-1 rounded text-xs font-semibold bg-white/90 text-gray-800 capitalize">
+            {product.condition}
           </span>
         </div>
 
-        {/* Indicador de múltiplas imagens */}
-        {product.images.length > 1 && (
-          <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-            </svg>
-            {product.images.length}
+        {/* Status do Produto */}
+        {isSold && (
+          <div className="absolute top-3 right-3">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+              Vendido
+            </span>
           </div>
         )}
       </div>
@@ -52,49 +64,55 @@ export function ProductCard({ product, onViewDetails }: ProductCardProps) {
           {product.description}
         </p>
 
-        {/* Metadados */}
-        <div className="flex items-center gap-3 mb-4 text-xs text-gray-500">
-          {product.size && (
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              {product.size}
-            </span>
-          )}
-          {product.category && (
-            <span className="flex items-center gap-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              {product.category}
-            </span>
-          )}
-        </div>
-
         {/* Preço e Botão */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-2xl font-bold text-blue-600">
-              {formatPrice(product.price_giro)}
+              {priceInGiro.toFixed(2)} GIRO
             </p>
           </div>
           <button
-            onClick={() => onViewDetails?.(product)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails?.(product);
+            }}
+            disabled={isSold || isOwnProduct || !hasEnoughBalance}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              isSold 
+                ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                : isOwnProduct
+                ? 'bg-blue-100 text-blue-600 cursor-not-allowed'
+                : !hasEnoughBalance
+                ? 'bg-red-300 text-red-700 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
+            }`}
+            title={
+              isSold 
+                ? 'Produto já foi vendido'
+                : isOwnProduct
+                ? 'Este é seu produto'
+                : !hasEnoughBalance
+                ? `Saldo insuficiente (precisa de ${priceInGiro.toFixed(2)} GIRO)`
+                : 'Comprar este produto'
+            }
           >
-            Ver Detalhes
+            {isSold 
+              ? 'Vendido'
+              : isOwnProduct
+              ? 'Seu Produto'
+              : !hasEnoughBalance
+              ? 'Sem Saldo'
+              : 'Comprar'}
           </button>
         </div>
 
         {/* Vendedor */}
         <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-600">
           <div className="w-5 h-5 bg-blue-200 rounded-full flex items-center justify-center text-xs font-semibold text-blue-700">
-            ?
+            {product.seller_wallet?.slice(2, 4).toUpperCase()}
           </div>
-          <span className="font-medium">
-            Usuário
-          </span>
+          <span className="font-medium truncate">{product.seller_wallet}</span>
+          {isOwnProduct && <span className="text-blue-600 ml-auto font-semibold">✓ Seu</span>}
         </div>
       </div>
     </div>

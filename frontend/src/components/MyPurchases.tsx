@@ -1,25 +1,11 @@
 import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { supabase } from '../lib/supabase';
-
-interface Purchase {
-  id: string;
-  product_id: string;
-  buyer_wallet: string;
-  seller_wallet: string;
-  price_giro: number;
-  created_at: string;
-  product?: {
-    id: string;
-    title: string;
-    images: string[];
-    price_giro: number;
-  };
-}
+import { type Product } from '../hooks/useProducts';
 
 export function MyPurchases() {
   const { user } = usePrivy();
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [purchases, setPurchases] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,38 +18,55 @@ export function MyPurchases() {
     try {
       setIsLoading(true);
       setError(null);
-      const walletAddress = user.wallet.address.toLowerCase();
 
-      // Buscar compras do usuário na tabela de transações
-      const { data, error: fetchError } = await supabase
+      const walletAddress = user.wallet.address.toLowerCase();
+      console.log('🔍 Fetching purchases for wallet:', walletAddress);
+
+      // Buscar transações onde o usuário é comprador
+      const { data: transactions, error: fetchError } = await supabase
         .from('transactions')
-        .select(`
-          id,
-          product_id,
-          buyer_wallet,
-          seller_wallet,
-          price_giro,
-          created_at,
-          products (
-            id,
-            title,
-            images,
-            price_giro
-          )
-        `)
+        .select('*')
         .eq('buyer_wallet', walletAddress)
+        .eq('status', 'completed')
         .order('created_at', { ascending: false });
 
+      console.log('📊 Transactions found:', transactions);
+      console.log('❌ Fetch error:', fetchError);
+
       if (fetchError) {
-        console.error('Erro ao buscar compras:', fetchError);
-        setError('Erro ao carregar compras');
-        return;
+        throw fetchError;
       }
 
-      setPurchases(data || []);
-    } catch (err) {
-      console.error('Erro:', err);
-      setError('Erro ao carregar compras');
+      // Para cada transação, buscar os dados do produto
+      const purchasesList: Product[] = [];
+      
+      console.log('🔄 Processing transactions...');
+      if (transactions && transactions.length > 0) {
+        console.log(`📦 Found ${transactions.length} transactions`);
+        for (const tx of transactions) {
+          console.log('📍 Processing transaction:', tx.id, 'Product ID:', tx.product_id);
+          if (tx.product_id) {
+            const { data: product, error: productError } = await supabase
+              .from('products')
+              .select('*')
+              .eq('id', tx.product_id)
+              .single();
+            
+            console.log('📦 Product result:', product, 'Error:', productError);
+            if (product && !productError) {
+              purchasesList.push(product);
+            }
+          }
+        }
+      } else {
+        console.log('ℹ️ No transactions found');
+      }
+
+      console.log('✅ Final purchases list:', purchasesList);
+      setPurchases(purchasesList);
+    } catch (err: any) {
+      console.error('Erro ao buscar compras:', err);
+      setError(err.message || 'Erro ao carregar compras');
     } finally {
       setIsLoading(false);
     }
@@ -154,7 +157,20 @@ export function MyPurchases() {
   return (
     <div className="pt-24 pb-32 md:pb-12 min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Minhas Compras</h1>
+        <div className="flex items-start justify-between gap-4 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Minhas Compras</h1>
+          <button
+            onClick={fetchPurchases}
+            disabled={isLoading}
+            className="px-2 py-2 md:px-4 md:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 md:gap-2 flex-shrink-0 disabled:opacity-50"
+            title="Atualizar compras"
+          >
+            <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="hidden md:inline">Refresh</span>
+          </button>
+        </div>
 
         <div className="space-y-4">
           {purchases.map((purchase) => (
@@ -164,19 +180,13 @@ export function MyPurchases() {
             >
               <div className="flex gap-4 p-4">
                 {/* Imagem do Produto */}
-                <div className="w-24 h-24 flex-shrink-0 bg-gray-200 rounded-lg overflow-hidden">
-                  {purchase.product?.images && purchase.product.images.length > 0 ? (
-                    <img
-                      src={purchase.product.images[0]}
-                      alt={purchase.product.title}
-                      className="w-full h-full object-cover"
-                    />
+                <div className="w-24 h-24 flex-shrink-0 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg overflow-hidden flex items-center justify-center">
+                  {purchase.images && purchase.images.length > 0 ? (
+                    <img src={purchase.images[0]} alt={purchase.title} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
+                    <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
                   )}
                 </div>
 
@@ -184,16 +194,16 @@ export function MyPurchases() {
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900 line-clamp-2">
-                      {purchase.product?.title || 'Produto não disponível'}
+                      {purchase.title}
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      Compra realizada em {new Date(purchase.created_at).toLocaleDateString('pt-BR')}
+                      {purchase.description}
                     </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Valor pago:</span>
                     <span className="text-lg font-bold text-blue-600">
-                      {(purchase.price_giro / 1).toFixed(0)} GIRO
+                      {purchase.price_giro} GIRO
                     </span>
                   </div>
                 </div>

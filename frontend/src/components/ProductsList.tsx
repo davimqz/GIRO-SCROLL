@@ -4,12 +4,12 @@ import { ProductCard } from './ProductCard';
 import { ProductDetailModal } from './ProductDetailModal';
 
 export function ProductsList() {
-  const { products, fetchProducts, isLoading, error } = useProducts();
+  const { fetchProducts, products, isLoading, error } = useProducts();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]);
+  }, []);
 
   if (isLoading) {
     return (
@@ -89,7 +89,7 @@ export function ProductsList() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product) => (
             <ProductCard
-              key={product.id}
+              key={product.id.toString()}
               product={product}
               onViewDetails={(p) => setSelectedProduct(p)}
             />
@@ -101,10 +101,14 @@ export function ProductsList() {
       <ProductDetailModal
         product={selectedProduct}
         isOpen={selectedProduct !== null}
-        onClose={() => setSelectedProduct(null)}
-        onBuy={(product) => {
-          console.log('Buy product:', product);
-          // TODO: Implementar compra
+        onClose={() => {
+          setSelectedProduct(null);
+          // Refetch products após fechar a modal
+          fetchProducts();
+        }}
+        onBuy={() => {
+          // Refetch products após compra
+          fetchProducts();
         }}
       />
     </div>
