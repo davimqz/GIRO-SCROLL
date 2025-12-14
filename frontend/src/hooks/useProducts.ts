@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { supabase } from '../lib/supabase';
-import { parseEther } from 'viem';
 
 export interface Product {
   id: string;
@@ -78,7 +77,7 @@ export function useProducts() {
     async (productData: CreateProductData): Promise<{ id: string; seller_id: string } | null> => {
       if (!authenticated || !walletAddress) {
         setError('Please connect your wallet');
-        return false;
+        return null;
       }
 
       setIsLoading(true);

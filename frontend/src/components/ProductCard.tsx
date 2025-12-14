@@ -18,7 +18,6 @@ export function ProductCard({ product, onViewDetails }: ProductCardProps) {
   const priceInGiro = parseFloat(product.price_giro || '0');
   const hasEnoughBalance = balance >= priceInGiro;
   const isSold = product.status === 'sold';
-  const canBuy = !isSold && !isOwnProduct && hasEnoughBalance;
 
   return (
     <div 

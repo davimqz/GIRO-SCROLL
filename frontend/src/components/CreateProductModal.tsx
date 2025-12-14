@@ -4,7 +4,6 @@ import { useProducts, type CreateProductData } from '../hooks/useProducts';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { useAchievements } from '../hooks/useAchievements';
 import { AchievementNotification } from './AchievementNotification';
-import { parseEther } from 'viem';
 import { supabase } from '../lib/supabase';
 
 interface CreateProductModalProps {

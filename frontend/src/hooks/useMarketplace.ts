@@ -276,9 +276,9 @@ export function useMarketplace() {
             console.log(`Log ${i}:`, log);
             
             // Extrai o ID do segundo tópico (índice 1 é productId)
-            if (log.topics && log.topics.length > 1) {
+            if (log.topics && log.topics.length > 1 && log.topics[1]) {
               try {
-                const productId = BigInt(log.topics[1]);
+                const productId = BigInt(log.topics[1] as string);
                 console.log('✅ Product ID from event:', productId.toString());
                 return productId;
               } catch (e) {
