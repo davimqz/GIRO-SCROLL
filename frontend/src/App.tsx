@@ -1,162 +1,125 @@
-import { useState, useEffect } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import Navbar from "./components/Navbar";
-import Hero from "./components/Hero";
-import Footer from "./components/Footer";
-import HowItWorks from "./components/HowItWorks";
-import { OnboardingModal } from "./components/OnboardingModal";
-import { ProductsList } from "./components/ProductsList";
-import { MyPurchases } from "./components/MyPurchases";
-import { BottomNavigation } from "./components/BottomNavigation";
-import { CreateProductModal } from "./components/CreateProductModal";
-import { supabase } from "./lib/supabase";
+import { useState, useEffect } from 'react';
+import { setupAccountListener } from './web3';
+import { LandingPage } from './components/LandingPage';
+import { OnboardingModal } from './components/OnboardingModal';
+import { Navbar } from './components/Navbar';
+import { BottomNavigation } from './components/BottomNavigation';
+import { Feed } from './components/Feed';
+import { MyPurchases } from './components/MyPurchases';
+import { CreatePost } from './components/CreatePost';
 
 function App() {
-  const { authenticated, user } = usePrivy();
+  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'feed' | 'purchases' | 'profile'>('feed');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [currentView, setCurrentView] = useState<'marketplace' | 'purchases'>('marketplace');
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Scroll para marketplace quando conectar carteira
+  // Check if already connected
   useEffect(() => {
-    if (authenticated) {
-      const marketplaceSection = document.getElementById('marketplace');
-      if (marketplaceSection) {
-        marketplaceSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }
-  }, [authenticated]);
-
-  // Verifica se usuário já completou onboarding
-  useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      if (!authenticated || !user?.wallet?.address) {
-        console.log('❌ Not checking onboarding: authenticated=', authenticated, 'wallet=', user?.wallet?.address);
-        return;
-      }
-
-      const walletAddress = user.wallet.address.toLowerCase();
-      console.log('🔍 Checking onboarding for wallet:', walletAddress);
-
-      try {
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("id")
-          .eq("wallet_address", walletAddress)
-          .single();
-
-        console.log('👤 User data:', userData, 'Error:', userError);
-
-        if (userData) {
-          const { data: statusData, error: statusError } = await supabase
-            .from("onboarding_status")
-            .select("step_reward_claimed")
-            .eq("user_id", userData.id)
-            .single();
-
-          console.log('📊 Status data:', statusData, 'Error:', statusError);
-
-          if (!statusData?.step_reward_claimed) {
-            // Usuário não completou onboarding, mostrar modal
-            console.log('✅ Showing onboarding modal - reward not claimed');
-            setShowOnboarding(true);
-          } else {
-            console.log('⏭️ Onboarding already completed');
-          }
-        } else {
-          // Novo usuário, mostrar onboarding
-          console.log('✅ Showing onboarding modal - new user');
-          setShowOnboarding(true);
+    if (window.ethereum) {
+      window.ethereum.request({ method: 'eth_accounts' }).then((accounts: string[]) => {
+        if (accounts.length > 0) {
+          setUserAddress(accounts[0]);
         }
-      } catch (error) {
-        console.error("❌ Error checking onboarding status:", error);
-        // Em caso de erro, mostrar onboarding por segurança
+      });
+    }
+
+    // Listen to account changes
+    const unsubscribe = setupAccountListener((accounts: string[]) => {
+      if (accounts.length > 0) {
+        setUserAddress(accounts[0]);
+      } else {
+        setUserAddress(null);
+        setShowOnboarding(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Verificar se usuário precisa fazer onboarding
+  useEffect(() => {
+    if (userAddress) {
+      const onboardingKey = `giro_onboarded_${userAddress.toLowerCase()}`;
+      const hasOnboarded = localStorage.getItem(onboardingKey);
+      
+      if (!hasOnboarded) {
         setShowOnboarding(true);
       }
-    };
+    }
+  }, [userAddress]);
 
-    checkOnboardingStatus();
-  }, [authenticated, user]);
+  if (!userAddress) {
+    return <LandingPage onConnected={setUserAddress} />;
+  }
 
   return (
-    <div className="min-h-screen">
-      {isTransitioning && (
-        <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando...</p>
+    <div className="min-h-screen bg-gray-50">
+      {showOnboarding && userAddress && (
+        <OnboardingModal
+          userAddress={userAddress}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
+
+      <Navbar
+        userAddress={userAddress}
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onDisconnect={() => setUserAddress(null)}
+      />
+
+      <main className="max-w-6xl mx-auto px-4 py-8 pb-24 md:pb-8">
+        {/* Desktop Layout */}
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Create Post Sidebar */}
+          {currentView === 'feed' && (
+            <div className="lg:col-span-1">
+              <CreatePost
+                userAddress={userAddress}
+                onPostCreated={() => setRefreshTrigger((prev) => prev + 1)}
+              />
+            </div>
+          )}
+
+          {/* Main Content */}
+          <div className={currentView === 'feed' ? 'lg:col-span-3' : 'lg:col-span-4'}>
+            {currentView === 'feed' && (
+              <Feed userAddress={userAddress} refreshTrigger={refreshTrigger} />
+            )}
+            {currentView === 'purchases' && (
+              <MyPurchases userAddress={userAddress} refreshTrigger={refreshTrigger} />
+            )}
+            {currentView === 'profile' && (
+              <div className="text-center py-12 bg-white rounded-lg">
+                <p className="text-gray-600">Página de perfil em desenvolvimento</p>
+              </div>
+            )}
           </div>
         </div>
-      )}
-      
-      <Navbar 
-        currentView={currentView}
-        onNavigateMarketplace={() => {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setCurrentView('marketplace');
-            setIsTransitioning(false);
-          }, 600);
-        }}
-        onNavigatePurchases={() => {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setCurrentView('purchases');
-            setIsTransitioning(false);
-          }, 600);
-        }}
-      />
-      {!authenticated && (
-        <>
-          <Hero />
-          <HowItWorks />
-        </>
-      )}
-      
-      {/* Marketplace Products - Somente quando autenticado */}
-      {authenticated && currentView === 'marketplace' && <ProductsList />}
-      
-      {/* Minhas Compras - Somente quando autenticado e na view correta */}
-      {authenticated && currentView === 'purchases' && <MyPurchases />}
-      
-      {!isTransitioning && <Footer authenticated={authenticated} />}
-      
-      {/* Onboarding Modal */}
-      <OnboardingModal
-        isOpen={showOnboarding}
-        onClose={() => setShowOnboarding(false)}
-      />
 
-      {/* Bottom Navigation - Mobile */}
+        {/* Mobile Layout */}
+        <div className="md:hidden">
+          {currentView === 'feed' && (
+            <Feed userAddress={userAddress} refreshTrigger={refreshTrigger} />
+          )}
+          {currentView === 'purchases' && (
+            <MyPurchases userAddress={userAddress} refreshTrigger={refreshTrigger} />
+          )}
+          {currentView === 'profile' && (
+            <div className="text-center py-12 bg-white rounded-lg">
+              <p className="text-gray-600">Página de perfil em desenvolvimento</p>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Bottom Navigation for Mobile */}
       <BottomNavigation
-        visible={authenticated}
+        userAddress={userAddress}
         currentView={currentView}
-        onAddProduct={() => setShowCreateProduct(true)}
-        onMyPurchases={() => {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setCurrentView('purchases');
-            setIsTransitioning(false);
-          }, 600);
-        }}
-        onGoToMarketplace={() => {
-          setIsTransitioning(true);
-          setTimeout(() => {
-            setCurrentView('marketplace');
-            setIsTransitioning(false);
-          }, 600);
-        }}
-      />
-
-      {/* Create Product Modal */}
-      <CreateProductModal
-        isOpen={showCreateProduct}
-        onClose={() => setShowCreateProduct(false)}
-        onSuccess={() => {
-          setShowCreateProduct(false);
-          console.log('Product created successfully!');
-        }}
+        onNavigate={setCurrentView}
+        onPostCreated={() => setRefreshTrigger((prev) => prev + 1)}
       />
     </div>
   );

@@ -1,180 +1,125 @@
-import { useState } from "react";
-import { usePrivy } from "@privy-io/react-auth";
-import { useUser } from "../hooks/useUser";
-import Logo from "../assets/logo/giro_logo.png";
-import { CreateProductModal } from "./CreateProductModal";
+import { useState } from 'react';
+import logoImg from '../components/assets/logo/giro_logo.png';
 
 interface NavbarProps {
-  currentView?: 'marketplace' | 'purchases';
-  onNavigateMarketplace?: () => void;
-  onNavigatePurchases?: () => void;
+  userAddress: string;
+  currentView: 'feed' | 'purchases' | 'profile';
+  onNavigate: (view: 'feed' | 'purchases' | 'profile') => void;
+  onDisconnect: () => void;
 }
 
-export default function Navbar({ currentView, onNavigateMarketplace, onNavigatePurchases }: NavbarProps) {
-  const { authenticated, login, logout } = usePrivy();
-  const { user } = useUser();
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+export function Navbar({
+  userAddress,
+  currentView,
+  onNavigate,
+  onDisconnect,
+}: NavbarProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navItems = [
+    { id: 'feed', label: 'Feed' },
+    { id: 'purchases', label: 'Minhas Compras' },
+    { id: 'profile', label: 'Perfil' },
+  ];
+
+  const handleNavClick = (view: 'feed' | 'purchases' | 'profile') => {
+    onNavigate(view);
+    setMobileMenuOpen(false);
+  };
 
   return (
-    <>
-      <nav className="fixed top-0 left-0 w-full bg-[#fbf7f1] shadow z-50">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-
-          {/* ESQUERDA - Logo */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <img src={Logo} className="h-8 w-8 object-contain" />
-            <span className="font-semibold text-lg">Giro</span>
+    <nav style={{ backgroundColor: '#FBF7F1' }} className="shadow-md">
+      <div className="max-w-6xl mx-auto px-4 py-4">
+        {/* Desktop e Mobile Header */}
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <img src={logoImg} alt="Giro" className="w-10 h-10" />
+            <span className="text-gray-800 font-bold text-2xl">Giro</span>
           </div>
 
-          {/* CENTRO - Nav List (somente quando não autenticado) */}
-          <ul className="hidden md:flex items-center gap-10 text-sm font-medium mx-auto">
-            {!authenticated && (
-              <>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Home</li>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Sobre Nós</li>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Planos</li>
-              </>
-            )}
-            {authenticated && (
-              <>
-                <li 
-                  onClick={onNavigateMarketplace}
-                  className={`cursor-pointer transition font-semibold ${
-                    currentView === 'marketplace' 
-                      ? 'text-[#45BCA0]' 
-                      : 'text-black hover:text-[#45BCA0]'
-                  }`}
-                >
-                  Feed
-                </li>
-                <li 
-                  onClick={onNavigatePurchases}
-                  className={`cursor-pointer transition font-semibold ${
-                    currentView === 'purchases' 
-                      ? 'text-[#45BCA0]' 
-                      : 'text-black hover:text-[#45BCA0]'
-                  }`}
-                >
-                  Minhas Compras
-                </li>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Meu Perfil</li>
-              </>
-            )}
-          </ul>
-
-          {/* DIREITA - Buttons e Menu Hamburguer */}
-          <div className="flex items-center gap-2 md:gap-3">
-            {authenticated && (
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-8">
+            {navItems.map((item) => (
               <button
-                onClick={() => setShowCreateProduct(true)}
-                className="hidden sm:flex px-3 md:px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-semibold"
+                key={item.id}
+                onClick={() => handleNavClick(item.id as any)}
+                className={`font-semibold transition ${
+                  currentView === item.id
+                    ? 'text-gray-900 border-b-2'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                style={currentView === item.id ? { borderColor: '#3FA18F' } : {}}
               >
-                + List Product
+                {item.label}
               </button>
-            )}
-            
-            {!authenticated && (
-              <button
-                onClick={login}
-                className="hidden md:flex px-4 py-2 bg-[#45BCA0] text-white rounded-md hover:bg-[#3FA18F] transition text-sm font-semibold"
-              >
-                Login
-              </button>
-            )}
+            ))}
+          </div>
 
-            {authenticated && (
-              <button
-                onClick={logout}
-                className="hidden md:flex px-4 py-2 bg-[#45BCA0] text-white rounded-md hover:bg-[#3FA18F] transition text-sm items-center gap-2"
-              >
-                <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center text-xs font-bold text-[#45BCA0]">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
-                </div>
-                {user?.name ? user.name : 'User'}
-              </button>
-            )}
-
-            {/* Menu Hamburguer - Mobile */}
+          {/* Desktop Right Side */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="px-4 py-2 rounded-lg" style={{ backgroundColor: '#f0f0f0' }}>
+              <p className="text-sm font-mono text-gray-700">
+                {userAddress.slice(0, 6)}...{userAddress.slice(-4)}
+              </p>
+            </div>
             <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="md:hidden p-2 hover:bg-gray-200 rounded-md transition"
-              aria-label="Menu"
+              onClick={onDisconnect}
+              className="text-white px-4 py-2 rounded-lg hover:opacity-90 transition font-semibold"
+              style={{ backgroundColor: '#3FA18F' }}
             >
-              <svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {!showMobileMenu ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                )}
-              </svg>
+              Desconectar
             </button>
           </div>
 
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              {mobileMenuOpen ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              )}
+            </svg>
+          </button>
         </div>
 
-        {/* MOBILE MENU */}
-        {showMobileMenu && (
-          <div className="md:hidden border-t border-gray-200 bg-[#fbf7f1]">
-            <div className="px-4 py-3 space-y-3 flex flex-col items-center">
-              {/* Navigation Links - Somente quando não autenticado */}
-              {!authenticated && (
-                <>
-                  <div className="py-2 px-2 hover:bg-gray-100 rounded cursor-pointer text-sm font-medium text-black">
-                    Home
-                  </div>
-                  <div className="py-2 px-2 hover:bg-gray-100 rounded cursor-pointer text-sm font-medium text-black">
-                    Sobre Nós
-                  </div>
-                  <div className="py-2 px-2 hover:bg-gray-100 rounded cursor-pointer text-sm font-medium text-black">
-                    Planos
-                  </div>
-                  
-                  {/* Login Button - Mobile Menu */}
-                  <button
-                    onClick={() => {
-                      login();
-                      setShowMobileMenu(false);
-                    }}
-                    className="w-full px-4 py-2 bg-[#45BCA0] text-white rounded-md hover:bg-[#3FA18F] transition text-sm font-semibold mt-2"
-                  >
-                    Login
-                  </button>
-                </>
-              )}
-
-              {/* User Button - Mobile */}
-              {authenticated && (
-                <button
-                  onClick={() => {
-                    logout();
-                    setShowMobileMenu(false);
-                  }}
-                  className="w-full px-4 py-2 bg-[#45BCA0] text-white rounded-md hover:bg-[#3FA18F] transition text-sm flex items-center justify-center gap-2"
-                >
-                  <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center text-xs font-bold text-[#45BCA0]">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : '?'}
-                  </div>
-                  {user?.name ? user.name : 'User'}
-                </button>
-              )}
+        {/* Mobile Menu - Apenas informações de usuário e desconectar */}
+        {mobileMenuOpen && (
+          <div className="md:hidden mt-4 pt-4 border-t border-gray-200 space-y-3">
+            <div className="px-4 py-2 rounded-lg" style={{ backgroundColor: '#f0f0f0' }}>
+              <p className="text-sm font-mono text-gray-700">
+                {userAddress.slice(0, 6)}...{userAddress.slice(-4)}
+              </p>
             </div>
+            <button
+              onClick={onDisconnect}
+              className="w-full text-white px-4 py-2 rounded-lg hover:opacity-90 transition font-semibold"
+              style={{ backgroundColor: '#3FA18F' }}
+            >
+              Desconectar
+            </button>
           </div>
         )}
-      </nav>
-
-      {/* Create Product Modal */}
-      <CreateProductModal
-        isOpen={showCreateProduct}
-        onClose={() => setShowCreateProduct(false)}
-        onSuccess={() => {
-          setShowMobileMenu(false);
-          console.log('Product created successfully!');
-        }}
-      />
-
-      {/* Spacer para empurrar o conteúdo */}
-      
-    </>
+      </div>
+    </nav>
   );
 }
