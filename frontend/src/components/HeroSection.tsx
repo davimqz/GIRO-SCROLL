@@ -1,10 +1,9 @@
-import heroImg from '../components/assets/hero/hero-img.jpg';
-
 interface HeroSectionProps {
   onGetStarted: () => void;
 }
 
 export function HeroSection({ onGetStarted }: HeroSectionProps) {
+  const heroImg = '/hero-img.jpg';
   return (
     <section className="py-20 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#FBF7F1' }}>
       <div className="max-w-7xl mx-auto">

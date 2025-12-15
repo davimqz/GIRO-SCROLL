@@ -4,13 +4,12 @@ import { getSigner } from '../web3';
 import { CONTRACT_ADDRESSES, GIRO_MARKETPLACE_ABI } from '../config';
 
 interface CreatePostProps {
-  userAddress: string;
   onPostCreated: () => void;
 }
 
 const CATEGORIES = ['Arte', 'Música', 'Vídeo', 'Fotografia', 'Design', 'Outro'];
 
-export function CreatePost({ userAddress, onPostCreated }: CreatePostProps) {
+export function CreatePost({ onPostCreated }: CreatePostProps) {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import logoImg from '../components/assets/logo/giro_logo.png';
+
+const logoImg = '/giro_logo.png';
 
 interface NavbarProps {
   userAddress: string;

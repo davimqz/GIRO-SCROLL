@@ -76,7 +76,6 @@ function App() {
           {currentView === 'feed' && (
             <div className="lg:col-span-1">
               <CreatePost
-                userAddress={userAddress}
                 onPostCreated={() => setRefreshTrigger((prev) => prev + 1)}
               />
             </div>
@@ -116,7 +115,6 @@ function App() {
 
       {/* Bottom Navigation for Mobile */}
       <BottomNavigation
-        userAddress={userAddress}
         currentView={currentView}
         onNavigate={setCurrentView}
         onPostCreated={() => setRefreshTrigger((prev) => prev + 1)}

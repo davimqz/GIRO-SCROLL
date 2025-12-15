@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { connectWallet } from '../web3';
-import logoImg from '../components/assets/logo/giro_logo.png';
 import { HeroSection } from './HeroSection';
 import { HowItWorks } from './HowItWorks';
 import { Plans } from './Plans';
 import { Footer } from './Footer';
+
+const logoImg = '/giro_logo.png';
 
 interface LandingPageProps {
   onConnected: (address: string) => void;

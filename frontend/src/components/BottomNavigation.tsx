@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { CreatePost } from './CreatePost';
 
 interface BottomNavigationProps {
-  userAddress: string;
   currentView: 'feed' | 'purchases' | 'profile';
   onNavigate: (view: 'feed' | 'purchases' | 'profile') => void;
   onPostCreated: () => void;
 }
 
 export function BottomNavigation({ 
-  userAddress, 
   currentView, 
   onNavigate,
   onPostCreated 
@@ -129,7 +127,6 @@ export function BottomNavigation({
             </div>
             <div className="p-4 pb-24">
               <CreatePost
-                userAddress={userAddress}
                 onPostCreated={handlePostCreated}
               />
             </div>
