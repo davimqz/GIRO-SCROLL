@@ -99,7 +99,7 @@ contract GiroMarketplace {
      * @dev Compra um produto
      * @param _productId ID do produto a comprar
      * @notice Comprador precisa ter saldo suficiente em GIRO
-     * @notice Os tokens são queimados (economia circular deflationary)
+     * @notice Os tokens são transferidos para o vendedor
      */
     function buyProduct(uint256 _productId) external {
         Product storage product = products[_productId];

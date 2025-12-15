@@ -90,7 +90,23 @@ function App() {
         </div>
       )}
       
-      <Navbar />
+      <Navbar 
+        currentView={currentView}
+        onNavigateMarketplace={() => {
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentView('marketplace');
+            setIsTransitioning(false);
+          }, 600);
+        }}
+        onNavigatePurchases={() => {
+          setIsTransitioning(true);
+          setTimeout(() => {
+            setCurrentView('purchases');
+            setIsTransitioning(false);
+          }, 600);
+        }}
+      />
       {!authenticated && (
         <>
           <Hero />

@@ -4,7 +4,13 @@ import { useUser } from "../hooks/useUser";
 import Logo from "../assets/logo/giro_logo.png";
 import { CreateProductModal } from "./CreateProductModal";
 
-export default function Navbar() {
+interface NavbarProps {
+  currentView?: 'marketplace' | 'purchases';
+  onNavigateMarketplace?: () => void;
+  onNavigatePurchases?: () => void;
+}
+
+export default function Navbar({ currentView, onNavigateMarketplace, onNavigatePurchases }: NavbarProps) {
   const { authenticated, login, logout } = usePrivy();
   const { user } = useUser();
   const [showCreateProduct, setShowCreateProduct] = useState(false);
@@ -32,8 +38,26 @@ export default function Navbar() {
             )}
             {authenticated && (
               <>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Feed</li>
-                <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Minhas Compras</li>
+                <li 
+                  onClick={onNavigateMarketplace}
+                  className={`cursor-pointer transition font-semibold ${
+                    currentView === 'marketplace' 
+                      ? 'text-[#45BCA0]' 
+                      : 'text-black hover:text-[#45BCA0]'
+                  }`}
+                >
+                  Feed
+                </li>
+                <li 
+                  onClick={onNavigatePurchases}
+                  className={`cursor-pointer transition font-semibold ${
+                    currentView === 'purchases' 
+                      ? 'text-[#45BCA0]' 
+                      : 'text-black hover:text-[#45BCA0]'
+                  }`}
+                >
+                  Minhas Compras
+                </li>
                 <li className="cursor-pointer text-black hover:text-[#45BCA0] transition">Meu Perfil</li>
               </>
             )}

@@ -26,6 +26,9 @@ contract GiroToken is ERC20, Ownable, Pausable {
     /// @notice Supply máximo de tokens (10 milhões GIRO)
     uint256 public constant MAX_SUPPLY = 10_000_000 * 10**18;
     
+    /// @notice Endereço do contrato Marketplace autorizado
+    address public marketplaceAddress;
+    
     /// @notice Tracking de wallets que já reivindicaram cada reward
     mapping(address => bool) public hasClaimedOnboarding;
     mapping(address => bool) public hasClaimedFirstListing;
@@ -36,6 +39,12 @@ contract GiroToken is ERC20, Ownable, Pausable {
     mapping(address => uint256) public salesCount;
     mapping(address => uint256) public purchasesCount;
     
+    /// @notice Modifier para autorizar apenas o Marketplace
+    modifier onlyMarketplace() {
+        require(msg.sender == marketplaceAddress, "Only marketplace can call this");
+        _;
+    }
+    
     /// @notice Eventos emitidos quando usuários reivindicam rewards
     event OnboardingRewardClaimed(address indexed user, uint256 amount);
     event FirstListingRewardClaimed(address indexed user, uint256 amount);
@@ -45,8 +54,8 @@ contract GiroToken is ERC20, Ownable, Pausable {
     /// @notice Evento emitido quando tokens são mintados para rewards futuros
     event RewardPoolMinted(address indexed to, uint256 amount);
     
-    /// @notice Evento emitido quando tokens são queimados
-    event TokensBurned(address indexed from, uint256 amount);
+    /// @notice Evento emitido quando uma compra acontece com transferência ao vendedor
+    event PurchaseTransferredToSeller(address indexed from, address indexed to, uint256 amount);
     
     /// @notice Evento emitido quando uma compra acontece
     event ProductPurchased(address indexed buyer, address indexed seller, uint256 amount);
@@ -57,10 +66,22 @@ contract GiroToken is ERC20, Ownable, Pausable {
     /**
      * @dev Constructor - minta supply inicial para o owner (usado para rewards)
      * @param initialSupply Supply inicial para o pool de rewards (em tokens, não wei)
+     * @param _marketplaceAddress Endereço do contrato Marketplace
      */
-    constructor(uint256 initialSupply) ERC20("Giro Token", "GIRO") Ownable(msg.sender) {
+    constructor(uint256 initialSupply, address _marketplaceAddress) ERC20("Giro Token", "GIRO") Ownable(msg.sender) {
+        marketplaceAddress = _marketplaceAddress;
         require(initialSupply * 10**18 <= MAX_SUPPLY, "Initial supply exceeds max supply");
         _mint(msg.sender, initialSupply * 10**18);
+    }
+
+    /**
+     * @dev Define o endereço do Marketplace (caso precise ser alterado)
+     * @param _marketplaceAddress Novo endereço do Marketplace
+     * @notice Apenas o owner pode chamar
+     */
+    function setMarketplaceAddress(address _marketplaceAddress) external onlyOwner {
+        require(_marketplaceAddress != address(0), "Invalid marketplace address");
+        marketplaceAddress = _marketplaceAddress;
     }
 
     /**
@@ -205,36 +226,26 @@ contract GiroToken is ERC20, Ownable, Pausable {
         return balanceOf(owner());
     }
 
-    /**
-     * @dev Queima tokens de um endereço
-     * @param amount Quantidade de tokens a queimar (em wei)
-     * @notice Qualquer usuário pode queimar seus próprios tokens
-     */
-    function burn(uint256 amount) external {
-        _burn(msg.sender, amount);
-        emit TokensBurned(msg.sender, amount);
-    }
+
 
     /**
      * @dev Realiza compra de produto (chamado pelo Marketplace)
      * @param buyer Endereço do comprador
      * @param seller Endereço do vendedor
      * @param amount Valor em GIRO a ser pago
-     * @notice Queima os tokens do comprador
-     * @notice Apenas contrato autorizado pode chamar
+     * @notice Transfere os tokens do comprador para o vendedor
+     * @notice Apenas o Marketplace pode chamar esta função
      */
     function executePurchase(
         address buyer,
         address seller,
         uint256 amount
-    ) external {
-        require(msg.sender == buyer || msg.sender == address(this), "Unauthorized");
-        
+    ) external onlyMarketplace {
         // Verificar balance do comprador
         require(balanceOf(buyer) >= amount, "Insufficient balance");
         
-        // Queimar tokens do comprador
-        _burn(buyer, amount);
+        // Transferir tokens do comprador para o vendedor
+        _transfer(buyer, seller, amount);
         
         // Incrementar contador de vendas do vendedor
         salesCount[seller]++;
@@ -242,7 +253,7 @@ contract GiroToken is ERC20, Ownable, Pausable {
         // Incrementar contador de compras do comprador
         purchasesCount[buyer]++;
         
-        emit ProductPurchased(buyer, seller, amount);
+        emit PurchaseTransferredToSeller(buyer, seller, amount);
     }
 
     /**

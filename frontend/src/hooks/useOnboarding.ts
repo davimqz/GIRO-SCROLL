@@ -48,6 +48,13 @@ export function useOnboarding() {
 
       setUserProfile(userData);
 
+      // Se usuário é novo (não existe), começa do step 1
+      if (!userData) {
+        setCurrentStep(1);
+        setOnboardingStatus(null);
+        return;
+      }
+
       // Se usuário existe, busca status de onboarding
       if (userData) {
         const { data: statusData, error: statusError } = await supabase
@@ -75,6 +82,9 @@ export function useOnboarding() {
           } else {
             setCurrentStep(1); // Wallet
           }
+        } else {
+          // Se não tem status, começa do step 2 (perfil)
+          setCurrentStep(2);
         }
       }
     } catch (err) {

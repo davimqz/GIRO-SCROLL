@@ -8,8 +8,9 @@ export function ProductsList() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
+    // Fetch inicial apenas
     fetchProducts();
-  }, []);
+  }, [fetchProducts]);
 
   if (isLoading) {
     return (

@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { supabase } from '../lib/supabase';
 import { type Product } from '../hooks/useProducts';
+import { ProductDetailModal } from './ProductDetailModal';
 
 export function MyPurchases() {
   const { user } = usePrivy();
   const [purchases, setPurchases] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const fetchPurchases = async () => {
     if (!user?.wallet?.address) {
@@ -176,7 +178,8 @@ export function MyPurchases() {
           {purchases.map((purchase) => (
             <div
               key={purchase.id}
-              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+              onClick={() => setSelectedProduct(purchase)}
+              className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
             >
               <div className="flex gap-4 p-4">
                 {/* Imagem do Produto */}
@@ -212,6 +215,13 @@ export function MyPurchases() {
           ))}
         </div>
       </div>
+
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={selectedProduct !== null}
+        onClose={() => setSelectedProduct(null)}
+      />
     </div>
   );
 }

@@ -26,46 +26,28 @@ async function main() {
     process.exit(1);
   }
 
-  // Deploy do GiroToken
-  // Initial supply = 100,000 GIRO (suficiente para 2000 onboardings)
-  const initialSupply = 100_000;
-  
+  // Deploy do GiroToken primeiro (com endereço zero para marketplace)
+  // Depois atualizamos
   console.log("\n⏳ Deploying GiroToken...");
+  
+  const initialSupply = 100_000;
   console.log("   Initial Supply:", initialSupply.toLocaleString(), "GIRO");
   console.log("   Max Supply: 10,000,000 GIRO");
   console.log("   Onboarding Reward: 50 GIRO per user");
 
   const GiroToken = await hre.ethers.getContractFactory("GiroToken");
-  const giroToken = await GiroToken.deploy(initialSupply);
+  const giroToken = await GiroToken.deploy(initialSupply, hre.ethers.ZeroAddress);
 
   await giroToken.waitForDeployment();
   const giroTokenAddress = await giroToken.getAddress();
 
   console.log("\n✅ GiroToken deployed!");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("📍 Contract Address:", giroTokenAddress);
-  console.log("🔗 Explorer:", `https://sepolia.scrollscan.com/address/${giroTokenAddress}`);
-  console.log("👤 Owner:", deployer.address);
-
-  // Verifica info do contrato
-  const name = await giroToken.name();
-  const symbol = await giroToken.symbol();
-  const decimals = await giroToken.decimals();
-  const totalSupply = await giroToken.totalSupply();
-  const ownerBalance = await giroToken.balanceOf(deployer.address);
-
-  console.log("\n📊 Token Info:");
-  console.log("   Name:", name);
-  console.log("   Symbol:", symbol);
-  console.log("   Decimals:", decimals.toString());
-  console.log("   Total Supply:", hre.ethers.formatEther(totalSupply), "GIRO");
-  console.log("   Owner Balance:", hre.ethers.formatEther(ownerBalance), "GIRO");
-  console.log("   Available Rewards:", (Number(hre.ethers.formatEther(ownerBalance)) / 50).toFixed(0), "users");
 
   // ============================================
   // 2️⃣ Deploy do GiroMarketplace
   // ============================================
-  
+
   console.log("\n⏳ Deploying GiroMarketplace...");
   console.log("   Token Address:", giroTokenAddress);
 
@@ -76,9 +58,39 @@ async function main() {
   const marketplaceAddress = await marketplace.getAddress();
 
   console.log("\n✅ GiroMarketplace deployed!");
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("📍 Contract Address:", marketplaceAddress);
-  console.log("🔗 Explorer:", `https://sepolia.scrollscan.com/address/${marketplaceAddress}`);
+
+  // ============================================
+  // 3️⃣ Atualizar endereço do Marketplace no Token
+  // ============================================
+
+  console.log("\n⏳ Updating GiroToken marketplace address...");
+  
+  const giroTokenInstance = await hre.ethers.getContractAt("GiroToken", giroTokenAddress);
+  const updateTx = await giroTokenInstance.setMarketplaceAddress(marketplaceAddress);
+  await updateTx.wait();
+
+  console.log("✅ GiroToken marketplace address updated!");
+
+  // Verifica info do contrato
+  const name = await giroToken.name();
+  const symbol = await giroToken.symbol();
+  const decimals = await giroToken.decimals();
+  const totalSupply = await giroToken.totalSupply();
+  const ownerBalance = await giroToken.balanceOf(deployer.address);
+
+  console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("🔗 Explorers:");
+  console.log("   GiroToken:", `https://sepolia.scrollscan.com/address/${giroTokenAddress}`);
+  console.log("   Marketplace:", `https://sepolia.scrollscan.com/address/${marketplaceAddress}`);
+
+  console.log("\n📊 Token Info:");
+  console.log("   Name:", name);
+  console.log("   Symbol:", symbol);
+  console.log("   Decimals:", decimals.toString());
+  console.log("   Total Supply:", hre.ethers.formatEther(totalSupply), "GIRO");
+  console.log("   Owner Balance:", hre.ethers.formatEther(ownerBalance), "GIRO");
+  console.log("   Available Rewards:", (Number(hre.ethers.formatEther(ownerBalance)) / 50).toFixed(0), "users");
 
   // ============================================
   // 3️⃣ Salvar informações de deployment
@@ -133,7 +145,7 @@ async function main() {
     try {
       await hre.run("verify:verify", {
         address: giroTokenAddress,
-        constructorArguments: [initialSupply],
+        constructorArguments: [initialSupply, hre.ethers.ZeroAddress],
       });
       console.log("✅ GiroToken verified!");
     } catch (error) {
