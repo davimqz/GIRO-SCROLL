@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "env": {
+    "VITE_PINATA_API_KEY": "@vite_pinata_api_key",
+    "VITE_PINATA_SECRET_KEY": "@vite_pinata_secret_key"
+  }
+}
