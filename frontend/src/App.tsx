@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { setupAccountListener } from './web3';
+import { BrowserProvider, Contract } from 'ethers';
 import { LandingPage } from './components/LandingPage';
 import { OnboardingModal } from './components/OnboardingModal';
 import { Navbar } from './components/Navbar';
@@ -7,6 +8,9 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { Feed } from './components/Feed';
 import { MyPurchases } from './components/MyPurchases';
 import { CreatePost } from './components/CreatePost';
+import { GIRO_TOKEN_ABI, CONTRACT_ADDRESSES } from './config';
+
+const GIRO_TOKEN_ADDRESS = CONTRACT_ADDRESSES.giroToken;
 
 function App() {
   const [userAddress, setUserAddress] = useState<string | null>(null);
@@ -37,15 +41,33 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Verificar se usuário precisa fazer onboarding
+  // Verificar se usuário já reclamou onboarding (via contrato)
   useEffect(() => {
-    if (userAddress) {
-      const onboardingKey = `giro_onboarded_${userAddress.toLowerCase()}`;
-      const hasOnboarded = localStorage.getItem(onboardingKey);
+    if (userAddress && window.ethereum) {
+      const checkOnboardingStatus = async () => {
+        try {
+          const provider = new BrowserProvider(window.ethereum);
+          const contract = new Contract(
+            GIRO_TOKEN_ADDRESS,
+            GIRO_TOKEN_ABI,
+            provider
+          );
+          
+          const hasClaimedOnboarding = await contract.hasClaimedOnboarding(userAddress);
+          console.log(`User ${userAddress} claimed onboarding: ${hasClaimedOnboarding}`);
+          
+          // Só mostra modal se NÃO reclamou ainda
+          setShowOnboarding(!hasClaimedOnboarding);
+        } catch (error) {
+          console.error('Erro ao verificar onboarding status:', error);
+          // Fallback: verificar localStorage
+          const onboardingKey = `giro_onboarded_${userAddress.toLowerCase()}`;
+          const hasOnboarded = localStorage.getItem(onboardingKey);
+          setShowOnboarding(!hasOnboarded);
+        }
+      };
       
-      if (!hasOnboarded) {
-        setShowOnboarding(true);
-      }
+      checkOnboardingStatus();
     }
   }, [userAddress]);
 
