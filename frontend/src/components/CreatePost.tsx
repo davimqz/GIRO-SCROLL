@@ -68,17 +68,21 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const apiKey = import.meta.env.VITE_PINATA_API_KEY || '';
-      const secretKey = import.meta.env.VITE_PINATA_SECRET_KEY || '';
+      const apiKey = import.meta.env.VITE_PINATA_API_KEY;
+      const secretKey = import.meta.env.VITE_PINATA_SECRET_KEY;
       
-      console.log('API Key presente:', !!apiKey);
-      console.log('Secret Key presente:', !!secretKey);
+      console.log('API Key:', apiKey);
+      console.log('Secret Key:', secretKey);
+
+      if (!apiKey || !secretKey) {
+        throw new Error('Chaves Pinata não configuradas. Entre em contato com o suporte.');
+      }
 
       const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
         method: 'POST',
         headers: {
-          'pinata_api_key': apiKey,
-          'pinata_secret_api_key': secretKey,
+          'pinata_api_key': String(apiKey),
+          'pinata_secret_api_key': String(secretKey),
         },
         body: formData,
       });
